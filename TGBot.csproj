@@ -9,7 +9,12 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.6" />
+    <PackageReference Include="MySql.Data" Version="9.3.0" />
     <PackageReference Include="Telegram.Bot" Version="22.5.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="sql\" />
   </ItemGroup>
 
 </Project>
