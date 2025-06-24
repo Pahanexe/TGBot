@@ -15,10 +15,11 @@ namespace TGBot.Source
     internal class Tgbot
     {
         private readonly TelegramBotClient _botClient;
-
-        public Tgbot(string token)
+        private readonly MySQLdb _mydb;
+        public Tgbot(string token,string conectionSTR)
         {
             _botClient = new TelegramBotClient(token);
+            _mydb = new MySQLdb(conectionSTR); 
         }
         public void Start()
         {
@@ -73,59 +74,59 @@ namespace TGBot.Source
             return Task.CompletedTask;
         }
 
-        private void Command_Handler()
-        {
-
-        }
         private async Task Text_Message_Handler(ITelegramBotClient bot, Update update, CancellationToken token)
         {
             long chatId = update.Message.Chat.Id;
             Message message = update.Message;
             string messageText = message.Text;
 
-            
-
-            // await bot.SendMessage
             await bot.SendMessage(
                 chatId: chatId,
                 text: $"Ти написав: {messageText}",
                 cancellationToken: token
             );
             Console.WriteLine($"Отримано повідомлення: {messageText}");
-            //return Task.CompletedTask;
         }
         private async Task Photo_Message_Handler(ITelegramBotClient bot, Update update, CancellationToken token)
         {
             var message = update.Message!; 
             var chatId = message.Chat.Id;
 
-            // 1. Отримуємо найбільше фото (найвища якість)
+            
             var photo = message.Photo!.Last();
             var fileId = photo.FileId;
 
-            // 2. Отримуємо інформацію про файл на сервері Telegram
             
             var file = await bot.GetFile(fileId, cancellationToken: token);
 
-            // 3. Визначаємо папку для збереження
+            
             string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "Images");
 
             if (!Directory.Exists(folderPath))
                 Directory.CreateDirectory(folderPath);
 
-            // 4. Формуємо повний шлях для збереження файлу
+            
             string filePath = Path.Combine(folderPath, $"{file.FileUniqueId}.jpg");
 
-            // 5. Скачуємо файл з Telegram і зберігаємо
+            
             using (var fileStream = new FileStream(filePath, FileMode.Create))
             {
                 await bot.DownloadFile(file.FilePath!, fileStream, cancellationToken: token);
             }
+            long imageid = await _mydb.SaveImageAsync(photo.FileId, folderPath);
 
-            // 6. Повідомлення користувачу
             await bot.SendMessage(chatId, "✅ Фото збережено локально!", cancellationToken: token);
 
             Console.WriteLine($"📁 Зображення збережено: {filePath}");
+        }
+
+        private List<string> ExtractTagsFromCaption(string caption)
+        {
+            return caption.Split(' ', '\n', ',', ';')
+                .Where(word => word.StartsWith("#") && word.Length > 1)
+                .Select(tag => tag.TrimStart('#').ToLowerInvariant())
+                .Distinct()
+                .ToList();
         }
     }
 }
