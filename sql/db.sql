@@ -1,11 +1,11 @@
+DROP DATABASE IF EXISTS telegram_images;
 CREATE DATABASE telegram_images;
 USE telegram_images;
 
 CREATE TABLE Images (
     Id INT AUTO_INCREMENT PRIMARY KEY,
     FileId VARCHAR(255) NOT NULL,
-    FilePath VARCHAR(500),
-    UploadedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    FilePath VARCHAR(500)
 );
 
 CREATE TABLE Tags (

@@ -70,5 +70,34 @@ namespace TGBot.Source
                 }
             }
         }
+
+        public async Task<List<(string FileId, string FilePath)>> FindImagesByTagAsync(string tagName)
+        {
+            var results = new List<(string FileId, string FilePath)>();
+
+            using var connection = new MySqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            const string query = @"
+        SELECT Images.FileId, Images.FilePath
+        FROM Images
+        JOIN ImageTags ON Images.Id = ImageTags.ImageId
+        JOIN Tags ON Tags.Id = ImageTags.TagId
+        WHERE Tags.Name = @tagName;";
+
+            using var cmd = new MySqlCommand(query, connection);
+            cmd.Parameters.AddWithValue("@tagName", tagName);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                string fileId = reader.GetString(0);      // перший стовпець у SELECT
+                string filePath = reader.GetString(1);
+
+                results.Add((fileId, filePath));
+            }
+
+            return results;
+        }
     }
 }

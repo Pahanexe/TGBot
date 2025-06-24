@@ -17,10 +17,10 @@ namespace TGBot.Source
     {
         private readonly TelegramBotClient _botClient;
         private readonly MySQLdb _mydb;
-        public Tgbot(string token,string conectionSTR)
+        public Tgbot(string token, string conectionSTR)
         {
             _botClient = new TelegramBotClient(token);
-            _mydb = new MySQLdb(conectionSTR); 
+            _mydb = new MySQLdb(conectionSTR);
         }
         public void Start()
         {
@@ -42,7 +42,7 @@ namespace TGBot.Source
         {
             var chatident = update.Message?.Chat.Id ?? 0;
             //update.Message is { Text: { } messageText }
-            if (update.Type==UpdateType.Message && update.Message is not null)
+            if (update.Type == UpdateType.Message && update.Message is not null)
             {
 
                 var message = update.Message;
@@ -92,22 +92,48 @@ namespace TGBot.Source
                     await bot.SendMessage(chatId, "Щоб працювати із ботом, надішли зображення з підписом в якому містяться теги по типу #тег1 або #тег2. ");
                     await bot.SendMessage(chatId, "Потім із допомогою команди /get витягни всі картнки за тегом.");
                     break;
+
+
                 case "/get":
-                    await bot.SendMessage(chatId, "В розробці...");
+                    if (strarr.Count < 2)
+                    {
+                        await bot.SendMessage(chatId, "Використай команду у форматі: /get #тег");
+                        break;
+                    }
+
+                    string rawTag = strarr[1];
+                    string tag = rawTag.TrimStart('#').ToLowerInvariant();
+
+                    var images = await _mydb.FindImagesByTagAsync(tag);
+
+                    if (images.Count == 0)
+                    {
+                        await bot.SendMessage(chatId, $"Нічого не знайдено за тегом: #{tag}");
+                        break;
+                    }
+
+                    foreach (var (fileId, _) in images)
+                    {
+                        await bot.SendPhoto(chatId, fileId, cancellationToken: token);
+                    }
+
+                    break;
+                default:
+                    await bot.SendMessage(
+                chatId: chatId,
+                text: "Мені не знайома ця команда. Напиши /help щоб ознайомитись із можливостями бота.",
+                cancellationToken: token
+            );
                     break;
 
             }
 
-            await bot.SendMessage(
-                chatId: chatId,
-                text: $"Ти написав: {messageText}",
-                cancellationToken: token
-            );
+
             Console.WriteLine($"Отримано повідомлення: {messageText}");
         }
         private async Task Photo_Message_Handler(ITelegramBotClient bot, Update update, CancellationToken token)
         {
-            var message = update.Message!; 
+            var message = update.Message!;
             var chatId = message.Chat.Id;
 
             if (string.IsNullOrWhiteSpace(message.Caption))
@@ -123,20 +149,20 @@ namespace TGBot.Source
             var photo = message.Photo!.Last();
             var fileId = photo.FileId;
 
-            
+
             var file = await bot.GetFile(fileId, cancellationToken: token);
 
-            
+
             string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "Images");
 
             if (!Directory.Exists(folderPath))
                 Directory.CreateDirectory(folderPath);
 
-            
+
             string filePath = Path.Combine(folderPath, $"{file.FileUniqueId}.jpg");
 
-            
-            
+
+
 
             long imageid = await _mydb.SaveImageAsync(photo.FileId, folderPath);
 
