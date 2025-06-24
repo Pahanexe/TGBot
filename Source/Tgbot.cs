@@ -8,6 +8,7 @@ using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types.Enums;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace TGBot.Source
 {
@@ -80,6 +81,23 @@ namespace TGBot.Source
             Message message = update.Message;
             string messageText = message.Text;
 
+            List<string> strarr = message.Text.Split(' ', '\n', ',', ';').Where(word => word.Length > 1).ToList();
+
+            switch (strarr[0])
+            {
+                case "/start":
+                    await bot.SendMessage(chatId, "Привіт! Я твій Telegram бот. Надішли мені фото з тегами у форматі #тег1 #тег2, або просто текстове повідомлення.");
+                    break;
+                case "/help":
+                    await bot.SendMessage(chatId, "Щоб працювати із ботом, надішли зображення з підписом в якому містяться теги по типу #тег1 або #тег2. ");
+                    await bot.SendMessage(chatId, "Потім із допомогою команди /get витягни всі картнки за тегом.");
+                    break;
+                case "/get":
+                    await bot.SendMessage(chatId, "В розробці...");
+                    break;
+
+            }
+
             await bot.SendMessage(
                 chatId: chatId,
                 text: $"Ти написав: {messageText}",
@@ -92,7 +110,16 @@ namespace TGBot.Source
             var message = update.Message!; 
             var chatId = message.Chat.Id;
 
-            
+            if (string.IsNullOrWhiteSpace(message.Caption))
+            {
+                await _botClient.SendMessage(
+                    chatId: message.Chat.Id,
+                    text: "Будь ласка, надішли фото з підписом, який містить теги у форматі #тег1 #тег2");
+
+                Console.WriteLine("Отримано фото без підпису.");
+                return; // нічого не робимо далі
+            }
+
             var photo = message.Photo!.Last();
             var fileId = photo.FileId;
 
@@ -109,15 +136,33 @@ namespace TGBot.Source
             string filePath = Path.Combine(folderPath, $"{file.FileUniqueId}.jpg");
 
             
+            
+
+            long imageid = await _mydb.SaveImageAsync(photo.FileId, folderPath);
+
+            var tags = ExtractTagsFromCaption(message.Caption!);
+            if (tags.Any())
+            {
+                await _mydb.AddTagsAsync(imageid, tags);
+
+                await _botClient.SendMessage(
+                    message.Chat.Id,
+                    $"Фото збережено з тегами: {string.Join(", ", tags)}");
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    message.Chat.Id,
+                    $"Підпис не містить жодного тегу у форматі #тег. Спробуй ще раз.");
+                return;
+            }
             using (var fileStream = new FileStream(filePath, FileMode.Create))
             {
                 await bot.DownloadFile(file.FilePath!, fileStream, cancellationToken: token);
             }
-            long imageid = await _mydb.SaveImageAsync(photo.FileId, folderPath);
-
             await bot.SendMessage(chatId, "✅ Фото збережено локально!", cancellationToken: token);
 
-            Console.WriteLine($"📁 Зображення збережено: {filePath}");
+            Console.WriteLine($" Зображення збережено: {filePath}");
         }
 
         private List<string> ExtractTagsFromCaption(string caption)
